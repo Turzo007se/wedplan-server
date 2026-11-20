@@ -7,6 +7,7 @@ dotenv.config();
 import multer from 'multer';
 import { MongoClient, ObjectId } from 'mongodb';
 import { betterAuth } from 'better-auth';
+import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { mongodbAdapter } from '@better-auth/mongo-adapter';
 import { jwt } from 'better-auth/plugins';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
@@ -16,7 +17,7 @@ for(const key of required) if(!process.env[key]) { console.error(`Missing requir
 const client=new MongoClient(process.env.MONGODB_URI); await client.connect();
 const db=client.db(process.env.MONGODB_DB||'wedplan');
 export const services=db.collection('services'), bookings=db.collection('bookings'), transactions=db.collection('transactions'), users=db.collection('users');
-await Promise.all([services.createIndex({vendorId:1}),services.createIndex({status:1,availability:1}),bookings.createIndex({serviceId:1,eventDate:1,customerId:1}),bookings.createIndex({vendorId:1,status:1}),transactions.createIndex({stripeSessionId:1},{unique:true,sparse:true})]);
+await Promise.all([services.createIndex({vendorId:1}),services.createIndex({status:1,availability:1}),bookings.createIndex({serviceId:1,eventDate:1,customerId:1},{name:'unique_active_booking',unique:true,partialFilterExpression:{status:{$in:['pending','accepted']}}}),bookings.createIndex({vendorId:1,status:1}),transactions.createIndex({stripeSessionId:1},{unique:true,sparse:true})]);
 export const authBase=process.env.BETTER_AUTH_URL||`http://localhost:${process.env.PORT||4000}`;
 const clientOrigins=[process.env.CLIENT_URL||'http://localhost:3000','http://localhost:3000'].filter(Boolean);
 export const auth=betterAuth({
@@ -28,7 +29,13 @@ export const auth=betterAuth({
     trustedOriginFilter:(origin)=>!!origin&&(clientOrigins.includes(origin)||origin.endsWith('.vercel.app')),
     defaultCookieAttributes:{sameSite:process.env.NODE_ENV==='production'?'none':'lax',secure:process.env.NODE_ENV==='production'}
   },
-  emailAndPassword:{enabled:true},
+  emailAndPassword:{enabled:true,minPasswordLength:6},
+  hooks:{before:createAuthMiddleware(async (ctx)=>{
+    const password = ctx.path === '/sign-up/email' ? ctx.body?.password : ctx.body?.newPassword;
+    if (password !== undefined && (typeof password !== 'string' || password.length < 6 || !/[A-Z]/.test(password) || !/[a-z]/.test(password))) {
+      throw new APIError('BAD_REQUEST', {message:'Use at least 6 characters, including an uppercase and a lowercase letter.'});
+    }
+  })},
   socialProviders:process.env.GOOGLE_CLIENT_ID?{google:{clientId:process.env.GOOGLE_CLIENT_ID,clientSecret:process.env.GOOGLE_CLIENT_SECRET}}:{},
   user:{modelName:'users',additionalFields:{role:{type:'string',required:true,defaultValue:'customer',input:true},isBlocked:{type:'boolean',required:true,defaultValue:false,input:false},businessName:{type:'string',required:false,input:false},subscriptionPlan:{type:'string',required:true,defaultValue:'free',input:false},subscriptionExpiresAt:{type:'date',required:false,input:false}}},
   databaseHooks:{user:{create:{before:async(data)=>({data:{...data,role:data.role==='vendor'?'vendor':'customer',isBlocked:false,subscriptionPlan:'free'}})}}},
