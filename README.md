@@ -2,6 +2,9 @@
 
 Backend REST API for WedPlan built with **Express.js**, **MongoDB**, **Better Auth**, **JWT (`jose`)**, and **Stripe**.
 
+## Repository Link
+[https://github.com/Turzo007se/wedplan-server](https://github.com/Turzo007se/wedplan-server)
+
 ## Features
 - Better Auth authentication with MongoDB adapter and JWT issuance.
 - Server-side role-based authorization middleware (`protect`, `roles('admin')`, `roles('vendor')`, `roles('customer')`).
