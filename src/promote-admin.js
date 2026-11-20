@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import {MongoClient} from 'mongodb';
 
-const adminEmail = (process.env.ADMIN_EMAIL || 'admin@wedplan.example').toLowerCase();
+const adminEmail = (process.env.ADMIN_EMAIL || 'admin@wedplan.com').toLowerCase();
 if(!process.env.MONGODB_URI){
   console.error('Please set MONGODB_URI in your environment or .env file.');
   process.exit(1);

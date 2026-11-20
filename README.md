@@ -39,4 +39,4 @@ Configured in `.env`:
 - `STRIPE_WEBHOOK_SECRET`: Stripe webhook secret (`whsec_...`)
 - `STRIPE_PRICE_ID`: Stripe recurring subscription price ID
 - `IMGBB_API_KEY`: ImgBB API key
-- `ADMIN_EMAIL`: Email to grant admin rights
+- `ADMIN_EMAIL`: Email to grant admin rights (defaults to `admin@wedplan.com`)
