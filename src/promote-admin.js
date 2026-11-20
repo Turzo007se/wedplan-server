@@ -1,4 +1,29 @@
 import 'dotenv/config';
 import {MongoClient} from 'mongodb';
-if(!process.env.MONGODB_URI||!process.env.ADMIN_EMAIL){console.error('Set MONGODB_URI and ADMIN_EMAIL. The user must already have registered.');process.exit(1)}
-const client=new MongoClient(process.env.MONGODB_URI);try{await client.connect();const db=client.db(process.env.MONGODB_DB||'wedplan');const result=await db.collection('users').updateOne({email:process.env.ADMIN_EMAIL.toLowerCase()},{ $set:{role:'admin',isBlocked:false}});if(!result.matchedCount){console.error('No account found for ADMIN_EMAIL. Register that account first, then run this command.');process.exitCode=1}else console.log(`Granted admin role to ${process.env.ADMIN_EMAIL}.`);}finally{await client.close()}
+
+const adminEmail = (process.env.ADMIN_EMAIL || 'admin@wedplan.example').toLowerCase();
+if(!process.env.MONGODB_URI){
+  console.error('Please set MONGODB_URI in your environment or .env file.');
+  process.exit(1);
+}
+
+const client=new MongoClient(process.env.MONGODB_URI);
+try{
+  await client.connect();
+  const db=client.db(process.env.MONGODB_DB||'wedplan');
+  const result=await db.collection('users').updateOne(
+    {email:adminEmail},
+    { $set:{role:'admin',isBlocked:false,name: 'WedPlan Administrator', updatedAt:new Date()} },
+    { upsert: false }
+  );
+  if(!result.matchedCount){
+    console.log(`Account ${adminEmail} not yet registered. You can register it from the Sign Up page first, or create it directly.`);
+  } else {
+    console.log(`Successfully granted admin privileges to ${adminEmail}.`);
+  }
+}catch(e){
+  console.error('Promote admin error:', e.message);
+  process.exitCode=1;
+}finally{
+  await client.close();
+}
