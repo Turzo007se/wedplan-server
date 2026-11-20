@@ -40,3 +40,12 @@ Configured in `.env`:
 - `STRIPE_PRICE_ID`: Stripe recurring subscription price ID
 - `IMGBB_API_KEY`: ImgBB API key
 - `ADMIN_EMAIL`: Email to grant admin rights (defaults to `admin@wedplan.com`)
+
+## Evaluator test instructions
+
+1. Open the [live WedPlan site](https://wedplan-client-amber.vercel.app), choose **Sign Up**, and register a new account with the **Vendor** role.
+2. In **Dashboard > Subscription**, choose **Upgrade to Premium**.
+3. Confirm Stripe Checkout displays **Sandbox** or **Test mode**. Use Stripe's test card `4242 4242 4242 4242`, a future expiry date, and any three-digit CVC. If Checkout asks for a US ZIP code, use `10001`.
+4. After payment, wait for WedPlan to show **Premium activated**. Open **Dashboard > Subscription** to confirm the vendor is on Premium. An evaluator signed in as admin can also confirm the payment in **Dashboard > Transactions**.
+
+Share the evaluation admin credentials privately through the submission form.
