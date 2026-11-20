@@ -1,33 +1,37 @@
 # WedPlan Server
 
-Express API, Better Auth handler, MongoDB business data, and Stripe subscription webhooks.
+Backend REST API for WedPlan built with **Express.js**, **MongoDB**, **Better Auth**, **JWT (`jose`)**, and **Stripe**.
 
-## Local development
+## Features
+- Better Auth authentication with MongoDB adapter and JWT issuance.
+- Server-side role-based authorization middleware (`protect`, `roles('admin')`, `roles('vendor')`, `roles('customer')`).
+- Input validation and ownership checks on all mutating service and booking endpoints.
+- Vendor service authoring with free tier enforcement (maximum 3 active services without Premium).
+- Customer booking request APIs, status changes, and customer metrics computation.
+- Admin APIs for user search, user details, account blocking/unblocking, service status approval/rejection, and transaction logs.
+- Stripe Checkout integration and secure webhook processing (`/api/webhooks/stripe`).
+- Multipart file upload handler for ImgBB hosting.
 
-1. Install Node.js 20.9 or newer and run MongoDB.
-2. Copy `.env.example` to `.env` and configure MongoDB, Better Auth, and the client URL.
-3. Run `npm ci`, then `npm run dev`.
-4. Check `GET /api/health`.
+## Setup & Running Locally
+```bash
+npm install
+npm run seed-demo       # Populates demo vendors and 6 approved services
+npm run promote-admin   # Grants admin permissions to ADMIN_EMAIL
+npm run dev             # Starts Express server at http://localhost:4000
+```
 
-Use `npm start` in production. The API defaults to port 4000.
-
-## Environment
-
-See `.env.example`. Set `BETTER_AUTH_SECRET` to a long random secret. Google OAuth, Stripe, and ImgBB credentials must remain server-side. The Stripe webhook URL is `/api/webhooks/stripe`; subscribe it to `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted`.
-
-## Admin provisioning
-
-Create the account through public registration, set its email in `ADMIN_EMAIL`, then run `npm run promote-admin`. Registration only allows customer and vendor roles.
-
-## Local demo data
-
-Create two vendor accounts, set `DEMO_VENDOR_ONE_EMAIL` and `DEMO_VENDOR_TWO_EMAIL`, and run `npm run seed-demo`. This inserts six approved demo services into the existing `services` collection, three per vendor, so the home page has examples without exceeding the Free plan limit. Use only with a development database.
-
-## Data collections
-
-- Better Auth user/session/account data, with role, blocked status, vendor name, and subscription fields on the user record.
-- `services`: vendor-owned service listings and review/availability state.
-- `bookings`: customer requests with vendor and service references.
-- `transactions`: verified Stripe checkout records.
-
-Deploy as a persistent Node service. Set `CLIENT_URL`, `BETTER_AUTH_URL`, and MongoDB network access for production. Point Stripe webhooks to the public HTTPS API URL.
+## Environment Variables
+Configured in `.env`:
+- `PORT`: Server port (default: `4000`)
+- `CLIENT_URL`: Client URL for CORS (default: `http://localhost:3000`)
+- `MONGODB_URI`: MongoDB connection string
+- `MONGODB_DB`: MongoDB database name (`wedplan`)
+- `BETTER_AUTH_SECRET`: Secret key for Better Auth (minimum 32 characters)
+- `BETTER_AUTH_URL`: Auth base URL (`http://localhost:4000`)
+- `GOOGLE_CLIENT_ID`: Optional Google OAuth Client ID
+- `GOOGLE_CLIENT_SECRET`: Optional Google OAuth Client Secret
+- `STRIPE_SECRET_KEY`: Stripe secret key (`sk_test_...`)
+- `STRIPE_WEBHOOK_SECRET`: Stripe webhook secret (`whsec_...`)
+- `STRIPE_PRICE_ID`: Stripe recurring subscription price ID
+- `IMGBB_API_KEY`: ImgBB API key
+- `ADMIN_EMAIL`: Email to grant admin rights
