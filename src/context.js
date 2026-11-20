@@ -5,6 +5,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 dotenv.config();
 import multer from 'multer';
+import Stripe from 'stripe';
 import { MongoClient, ObjectId } from 'mongodb';
 import { betterAuth } from 'better-auth';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
@@ -20,6 +21,27 @@ export const services=db.collection('services'), bookings=db.collection('booking
 await Promise.all([services.createIndex({vendorId:1}),services.createIndex({status:1,availability:1}),bookings.createIndex({serviceId:1,eventDate:1,customerId:1},{name:'unique_active_booking',unique:true,partialFilterExpression:{status:{$in:['pending','accepted']}}}),bookings.createIndex({vendorId:1,status:1}),transactions.createIndex({stripeSessionId:1},{unique:true,sparse:true})]);
 export const authBase=process.env.BETTER_AUTH_URL||`http://localhost:${process.env.PORT||4000}`;
 const clientOrigins=[process.env.CLIENT_URL||'http://localhost:3000','http://localhost:3000'].filter(Boolean);
+async function prepareAccountDeletion(user){
+  const id=new ObjectId(user.id);
+  const account=await users.findOne({_id:id});
+  if(!account)return;
+  if(account.subscriptionPlan==='premium'&&account.stripeSubscriptionId){
+    if(!process.env.STRIPE_SECRET_KEY)throw new APIError('SERVICE_UNAVAILABLE',{message:'Subscription cancellation is unavailable. Please try again later.'});
+    const stripe=new Stripe(process.env.STRIPE_SECRET_KEY);
+    try{
+      const subscription=await stripe.subscriptions.retrieve(account.stripeSubscriptionId);
+      if(!['canceled','incomplete_expired'].includes(subscription.status))await stripe.subscriptions.cancel(subscription.id);
+    }catch(error){
+      console.error('Account deletion subscription cancellation failed',error.code);
+      throw new APIError('SERVICE_UNAVAILABLE',{message:'We could not cancel your subscription. Please try again later.'});
+    }
+  }
+  await Promise.all([
+    bookings.updateMany({status:'pending',$or:[{customerId:id},{vendorId:id}]},{$set:{status:'cancelled',updatedAt:new Date()}}),
+    services.updateMany({vendorId:id,availability:'active'},{$set:{availability:'inactive'}})
+  ]);
+}
+
 export const auth=betterAuth({
   baseURL:authBase,
   secret:process.env.BETTER_AUTH_SECRET,
@@ -37,7 +59,7 @@ export const auth=betterAuth({
     }
   })},
   socialProviders:process.env.GOOGLE_CLIENT_ID?{google:{clientId:process.env.GOOGLE_CLIENT_ID,clientSecret:process.env.GOOGLE_CLIENT_SECRET}}:{},
-  user:{modelName:'users',additionalFields:{role:{type:'string',required:true,defaultValue:'customer',input:true},isBlocked:{type:'boolean',required:true,defaultValue:false,input:false},businessName:{type:'string',required:false,input:false},subscriptionPlan:{type:'string',required:true,defaultValue:'free',input:false},subscriptionExpiresAt:{type:'date',required:false,input:false}}},
+  user:{modelName:'users',deleteUser:{enabled:true,beforeDelete:prepareAccountDeletion},additionalFields:{role:{type:'string',required:true,defaultValue:'customer',input:true},isBlocked:{type:'boolean',required:true,defaultValue:false,input:false},businessName:{type:'string',required:false,input:false},subscriptionPlan:{type:'string',required:true,defaultValue:'free',input:false},subscriptionExpiresAt:{type:'date',required:false,input:false}}},
   databaseHooks:{user:{create:{before:async(data)=>({data:{...data,role:data.role==='vendor'?'vendor':'customer',isBlocked:false,subscriptionPlan:'free'}})}}},
   plugins:[jwt()]
 });
